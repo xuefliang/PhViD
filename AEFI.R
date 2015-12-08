@@ -103,12 +103,13 @@ ror <- function (DATABASE, OR0 = 1, MIN.n11 = 1, DECISION = 1, DECISION.THRES = 
   RES <- vector(mode = "list")
   RES$INPUT.PARAM <- data.frame(OR0, MIN.n11, DECISION, DECISION.THRES, 
                                 RANKSTAT)
-  RES$ALLSIGNALS <- data.frame(L[, 1][order(petit_rankstat, 
-                                            decreasing = TRUE)], L[, 2][order(petit_rankstat, decreasing = TRUE)], 
-                               n11[order(petit_rankstat, decreasing = TRUE)], E[order(petit_rankstat, 
-                                                                                      decreasing = TRUE)], RankStat[order(petit_rankstat, 
-                                                                                                                          decreasing = TRUE)], exp(logROR)[order(petit_rankstat, 
-                                                                                                                                                                 decreasing = TRUE)], n1.[order(petit_rankstat, decreasing = TRUE)], 
+  RES$ALLSIGNALS <- data.frame(L[, 1][order(petit_rankstat, decreasing = TRUE)],
+                               L[, 2][order(petit_rankstat, decreasing = TRUE)], 
+                               n11[order(petit_rankstat, decreasing = TRUE)], 
+                               E[order(petit_rankstat, decreasing = TRUE)], 
+                               RankStat[order(petit_rankstat, decreasing = TRUE)], 
+                               exp(logROR)[order(petit_rankstat,decreasing = TRUE)], 
+                               n1.[order(petit_rankstat, decreasing = TRUE)],
                                n.1[order(petit_rankstat, decreasing = TRUE)], FDR)
   colnames(RES$ALLSIGNALS) <- c("drug code", "event effect", 
                                 "count", "expected count", "p-value", "ROR", "drug margin", 
