@@ -72,6 +72,7 @@ ror <- function (DATABASE, OR0 = 1, MIN.n11 = 1, DECISION = 1, DECISION.THRES = 
   pval.uni[pval.uni > 1] <- 1
   pval.uni[pval.uni < 0] <- 0
   PVAL.UNI <- pval.uni
+  #不输出图
   LBE.res <- LBE(2 * apply(cbind(pval.uni, 1 - pval.uni), 
                            1, min), plot.type = "none")
   pi.c <- LBE.res$pi0
