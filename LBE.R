@@ -4,11 +4,11 @@ data(golub.pval)
 #LBE零假设所占比例的估计程序，错误发现率和q值
 res=LBE(golub.pval)
 
-#$pi0(a)=(1/m)*\sum_{i=1}^{m}[-ln(1-pi)^{a}]/\Gamma(a+1)$
+#$\pi_{0}(a)=(1/m)*\sum_{i=1}^{m}[-ln(1-\pi_{0})^{a}]/\Gamma(a+1)$
 function (pval, a = NA, l = 0.05, ci.level = 0.95, qvalues = TRUE, 
           plot.type = "main", FDR.level = 0.05, n.significant = NA) 
 #pval:p值向量
-#a:$[-ln(1-pi)^{a}]$,如果a==NA（默认），a值自动计算，标准差渐近线的上限，pi0值小于为1的阈值。a>=1,a值直接应用在$[-ln(1-pi)^{a}]$公式中。a<1,对p值进行转化。
+#a:$[-ln(1-\pi_{0})^{a}]$,如果a==NA（默认），a值自动计算，标准差渐近线的上限，pi0值小于为1的阈值。a>=1,a值直接应用在$[-ln(1-pi)^{a}]$公式中。a<1,对p值进行转化。
 
 #l：在a=NA时，阈值，渐近标准差的上限
 #ci.level:pi0的置信区间
