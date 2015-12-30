@@ -22,7 +22,7 @@ function (pval, a = NA, l = 0.05, ci.level = 0.95, qvalues = TRUE,
 #结果
 #call 计算公式回显
 #FDR n.significant == NA时为fdr的控制线，n.significant != NA时为fdr的估计值
-#pi0 pi0的估计值，判断为真的零假设的比例
+#pi0 pi0的估计值，为真实无效假设所占总检验次数的比列。
 #pi0.ci pi0的置信区间
 #ci.level pi0的置信区间的水平
 #a 这个$[-ln(1-\pi_{0})^{a}]$公式中用到的值
