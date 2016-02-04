@@ -18,8 +18,9 @@ signaldat <- as.PhViD(signaldat,MARGIN.THRES = 1)
 
 #ROR(signaldat)
 #n11代表公式中的a，n10代表公式中的b，n10 <- n1. - n11表示某药品总发生数-某药品的特定反应数
-#n01代表公式中的c，n.1 - n11表示特定的反应数-某药品的特定反应数，n11代表公式中的d
-ror(signaldat)
+#n01代表公式中的c，n.1 - n11表示特定的反应数-某药品的特定反应数，n00代表公式中的d
+
+DATABASE <- signaldat
 
 ror <- function (DATABASE, OR0 = 1, MIN.n11 = 1, DECISION = 1, DECISION.THRES = 0.05, 
                  RANKSTAT = 1) 
@@ -123,7 +124,7 @@ ror <- function (DATABASE, OR0 = 1, MIN.n11 = 1, DECISION = 1, DECISION.THRES = 
   RES
 }
 
-PRR()
+#PRR()
 
 #FDR的含义是阳性检验结果中判断错误的比例。
 #FDR是假设检验错误率的控制指标，可根据需要灵活选取。
@@ -136,30 +137,157 @@ PRR()
 #$p_{1}$为实际有差异变量在所有变量中所占的比例
 #$F_{1}(p)$为备则假设成立下p值的分布函数
 #给出的FDR的估计，称其为q值。
+#ror(signaldat)
 
 
+bcpnn <- function (DATABASE, RR0 = 1, MIN.n11 = 1, DECISION = 1, DECISION.THRES = 0.05, 
+          RANKSTAT = 1, MC = FALSE, NB.MC = 10000) 
+{
+  DATA <- DATABASE$data
+  N <- DATABASE$N
+  L <- DATABASE$L
+  #n11代表公式中的a
+  n11 <- DATA[, 1]
+  #n1.代表a+b
+  n1. <- DATA[, 2]
+  #n.1代表a+c
+  n.1 <- DATA[, 3]
+  #n10代表公式中的b
+  n10 <- n1. - n11
+  #n01代表公式中的c
+  n01 <- n.1 - n11
+  #n00代表公式中的d
+  n00 <- N - (n11 + n10 + n01)
+  E <- n1. * n.1/N
+  if (MIN.n11 > 1) {
+    E <- E[n11 >= MIN.n11]
+    n1. <- n1.[n11 >= MIN.n11]
+    n.1 <- n.1[n11 >= MIN.n11]
+    n10 <- n10[n11 >= MIN.n11]
+    n01 <- n01[n11 >= MIN.n11]
+    n00 <- n00[n11 >= MIN.n11]
+    L <- L[n11 >= MIN.n11, ]
+    n11 <- n11[n11 >= MIN.n11]
+  }
+  Nb.Cell <- length(n11)
+  if (MC == FALSE) {
+    post.H0 <- matrix(nrow = Nb.Cell, ncol = length(RR0))
+    p1 <- 1 + n1.
+    p2 <- 1 + N - n1.
+    q1 <- 1 + n.1
+    q2 <- 1 + N - n.1
+    r1 <- 1 + n11
+    r2b <- N - n11 - 1 + (2 + N)^2/(q1 * p1)
+    EICb <- log(2)^(-1) * (digamma(r1) - digamma(r1 + r2b) - 
+                             (digamma(p1) - digamma(p1 + p2) + digamma(q1) - digamma(q1 + 
+                                                                                       q2)))
+    VICb <- log(2)^(-2) * (trigamma(r1) - trigamma(r1 + r2b) + 
+                             (trigamma(p1) - trigamma(p1 + p2) + trigamma(q1) - 
+                                trigamma(q1 + q2)))
+    post.H0 <- pnorm(log(RR0), EICb, sqrt(VICb))
+    LB <- qnorm(0.025, EICb, sqrt(VICb))
+  }
+  if (MC == TRUE) {
+    #MCMCpack包提供了进行贝叶斯推断和贝叶斯计算的工具（特别是MCMC）。 MCMCpack包的设计思想是针对特定的模型运用MCMC方法。
+    require(MCMCpack)
+    n1. <- n11 + n10
+    n.1 <- n11 + n01
+    Nb_Obs <- length(n11)
+    q1. <- (n1. + 0.5)/(N + 1)
+    q.1 <- (n.1 + 0.5)/(N + 1)
+    q.0 <- (N - n.1 + 0.5)/(N + 1)
+    q0. <- (N - n1. + 0.5)/(N + 1)
+    a.. <- 0.5/(q1. * q.1)
+    a11 <- q1. * q.1 * a..
+    a10 <- q1. * q.0 * a..
+    a01 <- q0. * q.1 * a..
+    a00 <- q0. * q.0 * a..
+    g11 <- a11 + n11
+    g10 <- a10 + n10
+    g01 <- a01 + n01
+    g00 <- a00 + n00
+    g1. <- g11 + g10
+    g.1 <- g11 + g01
+    post.H0 <- vector(length = length(n11))
+    LB <- vector(length = length(n11))
+    quantile <- vector("numeric", length = length(n11))
+    for (m in 1:length(n11)) {
+      p <- rdirichlet(NB.MC, c(g11[m], g10[m], g01[m], 
+                               g00[m]))
+      p11 <- p[, 1]
+      p1. <- p11 + p[, 2]
+      p.1 <- p11 + p[, 3]
+      IC_monte <- log(p11/(p1. * p.1))
+      temp <- IC_monte < log(RR0)
+      post.H0[m] <- sum(temp)/NB.MC
+      LB[m] <- sort(IC_monte)[round(NB.MC * 0.025)]
+    }
+    rm(p11, p1., p.1, IC_monte, temp)
+    gc()
+  }
+  if (RANKSTAT == 1) 
+    RankStat <- post.H0
+  if (RANKSTAT == 2) 
+    RankStat <- LB
+  if (RANKSTAT == 1) {
+    FDR <- (cumsum(post.H0[order(post.H0)])/(1:length(post.H0)))
+    FNR <- rev(cumsum((1 - post.H0)[order(1 - post.H0)]))/(Nb.Cell - 
+                                                             1:length(post.H0))
+    Se <- cumsum((1 - post.H0)[order(post.H0)])/(sum(1 - 
+                                                       post.H0))
+    Sp <- rev(cumsum(post.H0[order(1 - post.H0)]))/(Nb.Cell - 
+                                                      sum(1 - post.H0))
+  }
+  if (RANKSTAT == 2) {
+    FDR <- (cumsum(post.H0[order(LB, decreasing = TRUE)])/(1:length(post.H0)))
+    FNR <- rev(cumsum((1 - post.H0)[order(1 - LB, decreasing = TRUE)]))/(Nb.Cell - 
+                                                                           1:length(post.H0))
+    Se <- cumsum((1 - post.H0)[order(LB, decreasing = TRUE)])/(sum(1 - 
+                                                                     post.H0))
+    Sp <- rev(cumsum(post.H0[order(1 - LB, decreasing = TRUE)]))/(Nb.Cell - 
+                                                                    sum(1 - post.H0))
+  }
+  if (DECISION == 1) 
+    Nb.signaux <- sum(FDR <= DECISION.THRES)
+  if (DECISION == 2) 
+    Nb.signaux <- min(DECISION.THRES, Nb.Cell)
+  if (DECISION == 3) {
+    if (RANKSTAT == 1) 
+      Nb.signaux <- sum(RankStat <= DECISION.THRES, na.rm = TRUE)
+    if (RANKSTAT == 2) 
+      Nb.signaux <- sum(RankStat >= DECISION.THRES, na.rm = TRUE)
+  }
+  RES <- vector(mode = "list")
+  RES$INPUT.PARAM <- data.frame(RR0, MIN.n11, DECISION, DECISION.THRES, 
+                                RANKSTAT)
+  if (RANKSTAT == 1) {
+    RES$ALLSIGNALS <- data.frame(L[, 1][order(RankStat)], 
+                                 L[, 2][order(RankStat)], n11[order(RankStat)], E[order(RankStat)], 
+                                 RankStat[order(RankStat)], (n11/E)[order(RankStat)], 
+                                 n1.[order(RankStat)], n.1[order(RankStat)], FDR, 
+                                 FNR, Se, Sp)
+    colnames(RES$ALLSIGNALS) <- c("drug code", "event effect", 
+                                  "count", "expected count", "post.H0", "n11/E", "drug margin", 
+                                  "event margin", "FDR", "FNR", "Se", "Sp")
+  }
+  if (RANKSTAT == 2) {
+    RES$ALLSIGNALS <- data.frame(L[, 1][order(RankStat, decreasing = TRUE)], 
+                                 L[, 2][order(RankStat, decreasing = TRUE)], n11[order(RankStat, 
+                                                                                       decreasing = TRUE)], E[order(RankStat, decreasing = TRUE)], 
+                                 RankStat[order(RankStat, decreasing = TRUE)], (n11/E)[order(RankStat, 
+                                                                                             decreasing = TRUE)], n1.[order(RankStat, decreasing = TRUE)], 
+                                 n.1[order(RankStat, decreasing = TRUE)], FDR, FNR, 
+                                 Se, Sp, post.H0[order(RankStat, decreasing = TRUE)])
+    colnames(RES$ALLSIGNALS) <- c("drug code", "event effect", 
+                                  "count", "expected count", "Q_0.025(log(IC))", "n11/E", 
+                                  "drug margin", "event margin", "FDR", "FNR", "Se", 
+                                  "Sp", "postH0")
+  }
+  RES$SIGNALS <- RES$ALLSIGNALS[1:Nb.signaux, ]
+  RES$NB.SIGNALS <- Nb.signaux
+  RES
+}
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-data(PhViDdata.frame,package = "PhViD")
-#names(PhViDdata.frame)
-attach(PhViDdata.frame)
-newvar <- rep(,length(PhViDdata.frame$'Drug lab'))
-
-
-PhViDdata <- as.PhViD(PhViDdata.frame)
-res <- BCPNN(PhViDdata)
-BCPNN(PhViDdata, RR0 = 1, MIN.n11 = 3, DECISION = 3, DECISION.THRES = 0.05, 
+bcpnn(signaldat, RR0 = 1, MIN.n11 = 3, DECISION = 3, DECISION.THRES = 0.05, 
       RANKSTAT = 2, MC = FALSE, NB.MC = 10000)
